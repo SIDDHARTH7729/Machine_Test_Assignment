@@ -22,7 +22,6 @@ const AgentSchema = new mongoose.Schema({
     type: String,
     required: true,
     minLength: 6,
-    select:false, // we dont sent the password back in response
   },
 }, {
   timestamps: true 
