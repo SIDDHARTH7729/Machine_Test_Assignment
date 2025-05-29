@@ -4,17 +4,43 @@ const { v4: uuidv4 } = require('uuid');
 
 // this func parses the uploaded file buffer and returns the data
 const parseFileBuffer = (req) => {
-    if (!req.file) throw new Error("No file uploaded");
+  if (!req.file) throw new Error("No file uploaded");
 
-    const fileBuffer = xlsx.read(req.file.buffer, { type: 'buffer' });
-    const sheet = fileBuffer.Sheets[fileBuffer.SheetNames[0]];
-    const data = xlsx.utils.sheet_to_json(sheet);
+  const fileBuffer = xlsx.read(req.file.buffer, { type: 'buffer' });
+  const sheet = fileBuffer.Sheets[fileBuffer.SheetNames[0]];
+  const rawData = xlsx.utils.sheet_to_json(sheet, { defval: "" });
 
-    const isInvalid = data.some(row => !row.FirstName || !row.Phone || !row.Notes);
-    if (isInvalid) throw new Error("Invalid file format. Required fields missing");
-    
-    console.log("File parsed successfully");
-    return data;
+  const cleanedData = rawData.map((row) => {
+    const cleanedRow = {};
+
+    // Normalize keys to lowercase and trim values
+    Object.entries(row).forEach(([key, value]) => {
+      const normalizedKey = key.trim().toLowerCase();
+      let cleanedValue = typeof value === "string" ? value.trim() : value;
+
+      if (normalizedKey === "phone") {
+        // Remove any non-digit characters, but keep + if present at start
+        cleanedValue = cleanedValue
+          .replace(/^[^+\d]*/, "")   // Remove leading non-digit, non-plus chars
+          .replace(/[^\d+]/g, "");   // Remove anything that's not digit or '+'
+        
+        if (!cleanedValue.startsWith("+91")) {
+          cleanedValue = `+91${cleanedValue.replace(/^\+?91/, "")}`;
+        }
+      }
+
+      cleanedRow[normalizedKey] = cleanedValue;
+    });
+
+    return cleanedRow;
+  });
+
+  // Validate required fields
+  const isInvalid = cleanedData.some(row => !row.firstname || !row.phone || !row.notes);
+  if (isInvalid) throw new Error("Invalid file format. Required fields: firstname, phone, notes");
+
+  console.log("File parsed and cleaned successfully");
+  return cleanedData;
 };
 
 // this function handles the file upload and returns the parsed data
@@ -32,7 +58,7 @@ const uploadAndDistributeData = async (req, res) => {
 
         // check if minimum 5 agents are there or not
         if(agents.length<5){
-            return res.status(400).json({ message: "Not enough agents to distribute the data" });
+            return res.status(400).json({ success:false,message: "Not enough agents to distribute the data" });
         }
 
         // random fileid generation
@@ -50,11 +76,11 @@ const uploadAndDistributeData = async (req, res) => {
         // Save the distributed data to the database
         await File.insertMany(distributedData);
 
-        return res.status(200).json({ message: "Data uploaded and distributed successfully", data: distributedData });
+        return res.status(200).json({ success:true,message: "Data uploaded and distributed successfully", data: distributedData });
 
     } catch (error) {
         console.error("Error uploading and distributing data:", error.message);
-        return res.status(500).json({ message: "Internal server error while uploading and distributing data" });
+        return res.status(500).json({ success:false,message: "Internal server error while uploading and distributing data" });
     }
 }
 

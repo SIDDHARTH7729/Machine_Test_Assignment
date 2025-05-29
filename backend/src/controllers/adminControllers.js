@@ -8,7 +8,7 @@ const register = async (req,res) =>{
 
         // checking if all the fields are there or not
         if(!email||!password){
-           return res.status(400).json({message:"All fields are required"}) 
+           return res.status(400).json({success:false,message:"All fields are required"}) 
         }
 
         // check if the user already exists
