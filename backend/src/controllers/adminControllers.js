@@ -36,7 +36,7 @@ const register = async (req, res) => {
 
         console.log("Sending response that user has been registered successfully");
         //return the resposne that  new user has been saved 
-        return res.status(201).json({ message: "User registered successfully", user: newUser });
+        return res.status(201).json({success:true, message: "User registered successfully", user: newUser });
     } catch (error) {
         console.log("Some error occurred while registering user: ", error);
         return res.status(500).json({ success: false, message: "Internal server error" });
@@ -48,7 +48,7 @@ const login = async (req, res) => {
     const { email, password } = req.body;
     // checking if all the fields are there or not
     if (!email || !password) {
-        return res.status(400).json({ success: false, error: "All fields are required" });
+        return res.status(400).json({ success: false, message: "All fields are required" });
     }
     try {
         // find the user by email
@@ -56,16 +56,16 @@ const login = async (req, res) => {
 
         // check if the user exists or not
         if (!existingUser) {
-            return res.status(404).json({ success: false, error: "User not found" });
+            return res.status(404).json({ success: false, message: "User not found" });
         }
 
         // compare the password with the hashed password
-        console.log("Comparing password for users with password which came as body ", password, " and comparing with, ", existingUser.password);
+        // for checking console.log("Comparing password for users with password which came as body ", password, " and comparing with, ", existingUser.password);
         const isPasswordValid = await checkPassword(password, existingUser.password);
 
         // check if the password is valid or not
         if (!isPasswordValid) {
-            return res.status(401).json({ success: false, error: "password Invalid" });
+            return res.status(401).json({ success: false, message: "password Invalid" });
         }
 
         // generate a JWT token
@@ -93,7 +93,7 @@ const login = async (req, res) => {
         });
     } catch (error) {
         console.log("Some error occurred while logging in user: ", error);
-        return res.status(500).json({ success: false, error: "Internal server error" });
+        return res.status(500).json({ success: false, message: "Internal server error" });
     }
 };
 
