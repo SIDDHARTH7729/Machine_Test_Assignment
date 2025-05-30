@@ -1,8 +1,12 @@
+// This controller file handles the agent related operations such as
+// creating an agent, fetching all agents, and fetching works assigned to a specific agent.
+
+
 const mongoose = require("mongoose");
 const { Agent,File } = require("../models");
 const { hashPassword } = require("../utils");
 
-// This controller handles the agent creation and fetching all agents
+// This controller func handles the agent creation and returns response of the creation of a new agent
 const createAgent = async (req, res) => {
     try {
         // get all credentials from the frontend
@@ -11,6 +15,17 @@ const createAgent = async (req, res) => {
         // checks if all the fields are filled or not
         if (!name || !email || !password || !phoneNumber) {
             return res.status(400).json({ success:false,message: "All fields are required" });
+        }
+
+        const existingAgent = await Agent.findOne({ email });
+        if (existingAgent) {
+            return res.status(409).json({ success: false, message: "An agent with this email already exists" });
+        }
+
+        // Optionally also check for name uniqueness
+        const existingName = await Agent.findOne({ name });
+        if (existingName) {
+            return res.status(409).json({ success: false, message: "An agent with this name already exists" });
         }
 
         // encerypt the password
@@ -26,7 +41,7 @@ const createAgent = async (req, res) => {
 
         // check if the agent is created or not
         if (!newAgent) {
-            return res.status(500).json({ success:false,message: "Agent registration failed" });
+            return res.status(500).json({ success:false,message: "An Agent with this email already exists" });
         }
 
         // return the response that  new agent has been saved 
@@ -38,6 +53,7 @@ const createAgent = async (req, res) => {
 
 }
 
+// This controller func fetches all the agents from the database
 const getAllAgents = async (req, res) => {
     try {
 
@@ -46,8 +62,13 @@ const getAllAgents = async (req, res) => {
         // here we have to fetch all the agents from the database
         const agents = await Agent.find({}).select("-password"); 
 
+        if(agents.length === 0) {
+            console.log("No agents found");
+            return res.status(201).json({ success:true,message: "No agents found, Please add some agents" });
+        }
+
         // check if agents are found or not
-        if (!agents || agents.length === 0) {
+        if (!agents) {
             return res.status(404).json({success: false, message: "No agents found" });
         }
         
@@ -65,8 +86,6 @@ const getAgentWorks = async (req, res) => {
     try {
         console.log("Fetching agent works...");
         const agentObjectId = new mongoose.Types.ObjectId(req.params.agentId);
-
-
         //sending agent details and their work
         const agent = await Agent.findById(agentObjectId).select("-password");
         const agentWorks = await File.find({ agentId: agentObjectId });

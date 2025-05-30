@@ -1,3 +1,6 @@
+// This funcion authenticates the user by verifying the JWT token present in the request headers.
+// This middleware checks if the request has a valid JWT token in the Authorization header.
+// This token is used to authenticate the user and grant access to protected routes.
 const jwt = require('jsonwebtoken');
 
 const verifyToken = (req,res,next) =>{

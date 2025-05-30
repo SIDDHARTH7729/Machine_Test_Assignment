@@ -1,3 +1,4 @@
+// This function encrypts a password using bcryptjs
 const bcrypt = require('bcryptjs');
 const encryptPassword = (password) => {
     if(!password){

@@ -1,3 +1,4 @@
+// This func checks the entered password against a hashed password using bcrypt
 const bcrypt = require('bcryptjs');
 
 const checkPassword = async (enteredPassword, hashedPassword) => {

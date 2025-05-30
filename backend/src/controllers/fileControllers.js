@@ -1,43 +1,59 @@
+// This is a controller file and  handles the business logic for file uploads, parsing, and data distribution among agents.
+// It includes functions to parse the uploaded file, upload and distribute data, and fetch all distributed data.
+
 const xlsx = require('xlsx');
 const {File,Agent} = require('../models');
 const { v4: uuidv4 } = require('uuid');
 
 // this func parses the uploaded file buffer and returns the data
+// it normalizes the data, cleans up phone numbers, and checks for required fields
+// here assumption has been made that the file contains columns: FirstName, Phone, and Notes 
+/* ***** as well as the format of phone is starting with + , anything before it is removed , since phone numbers of diff contries are of diff length
+         we have kept it min  lnegth of  7 (as shortest is 7 world wide)***** */
+// if the data is invalid, it throws an error
 const parseFileBuffer = (req) => {
   if (!req.file) throw new Error("No file uploaded");
 
-  const fileBuffer = xlsx.read(req.file.buffer, { type: 'buffer' });
+  // Read the file buffer and parse it using xlsx library
+  const fileBuffer = xlsx.read(req.file.buffer, { type: "buffer" });
   const sheet = fileBuffer.Sheets[fileBuffer.SheetNames[0]];
   const rawData = xlsx.utils.sheet_to_json(sheet, { defval: "" });
 
   const cleanedData = rawData.map((row) => {
     const cleanedRow = {};
-
-    // Normalize keys to lowercase and trim values
+    // here we normalise field to lowercase and trim spaces
     Object.entries(row).forEach(([key, value]) => {
       const normalizedKey = key.trim().toLowerCase();
       let cleanedValue = typeof value === "string" ? value.trim() : value;
 
       if (normalizedKey === "phone") {
-        // Remove any non-digit characters, but keep + if present at start
+        // here we normalize or clean up numbers
         cleanedValue = cleanedValue
-          .replace(/^[^+\d]*/, "")   // Remove leading non-digit, non-plus chars
-          .replace(/[^\d+]/g, "");   // Remove anything that's not digit or '+'
-        
-        if (!cleanedValue.startsWith("+91")) {
-          cleanedValue = `+91${cleanedValue.replace(/^\+?91/, "")}`;
+          .toString()
+          .replace(/^[^+\d]*/, "")   // Remove leading junk
+          .replace(/[^\d+]/g, "");   // Keeping only digits and numbers after plus sign
+
+        if (!cleanedValue.startsWith("+")) {
+          cleanedValue = `+91${cleanedValue.replace(/^(\+?91)?/, "")}`;
         }
+
+        cleanedRow["Phone"] = cleanedValue;
+      } else if (normalizedKey === "firstname") {
+        cleanedRow["FirstName"] = cleanedValue;
+      } else if (normalizedKey === "notes") {
+        cleanedRow["Notes"] = cleanedValue;
       }
-
-      cleanedRow[normalizedKey] = cleanedValue;
     });
-
     return cleanedRow;
   });
 
-  // Validate required fields
-  const isInvalid = cleanedData.some(row => !row.firstname || !row.phone || !row.notes);
-  if (isInvalid) throw new Error("Invalid file format. Required fields: firstname, phone, notes");
+  // Validate cleaned data before returning
+  const isInvalid = cleanedData.some(
+    (row) => !row.FirstName || !row.Phone || !row.Notes
+  );
+
+  if (isInvalid)
+    throw new Error("Invalid file format. Required fields: FirstName, Phone, Notes");
 
   console.log("File parsed and cleaned successfully");
   return cleanedData;
@@ -48,6 +64,9 @@ const uploadFile = async (req) => {
     return parseFileBuffer(req);
 };
 
+// This function handles the file upload, parses the data, and distributes it among agents
+// It checks if there are at least 5 agents available to distribute the data
+// If successful, it saves the distributed data to the database and returns a success message
 const uploadAndDistributeData = async (req, res) => {
     try {
         // check if the file is uploaded or not
@@ -71,6 +90,9 @@ const uploadAndDistributeData = async (req, res) => {
             Notes: entry.Notes,
             agentId: agents[index%agents.length]._id,
             sameId: id,
+            agentName: agents[index%agents.length].name,
+            agentEmail: agents[index%agents.length].email,
+            createdAt: entry.createdAt || new Date(), // if we want to sort by createdAt later
         }))
 
         // Save the distributed data to the database
@@ -79,11 +101,13 @@ const uploadAndDistributeData = async (req, res) => {
         return res.status(200).json({ success:true,message: "Data uploaded and distributed successfully", data: distributedData });
 
     } catch (error) {
+       // Handle errors during file upload and distribution
         console.error("Error uploading and distributing data:", error.message);
         return res.status(500).json({ success:false,message: "Internal server error while uploading and distributing data" });
     }
 }
 
+// This function fetches all the data from the File model and populates the agentId field with agent details
 const fetchAllData = async(req, res) => {
     try {
         // Fetch all data from the File model

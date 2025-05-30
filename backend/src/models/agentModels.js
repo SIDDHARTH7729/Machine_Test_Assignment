@@ -1,7 +1,11 @@
+// This file defines the agent model for the Agent model using Mongoose. 
+// Data Modelling is done here to define the structure of the agent data in the MongoDB database. 
+// It includes fields for name, email, mobile, and password, along with validation rules and timestamps for creation and updates.
 const mongoose = require('mongoose');
 
 const AgentSchema = new mongoose.Schema({
   name: {
+    unique: true,
     type: String,
     required: true,
     trim: true
